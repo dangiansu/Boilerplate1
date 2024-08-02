@@ -5,6 +5,8 @@ import connectDB from './config/mongoose';
 
 dotenv.config();
 
+connectDB()
+
 const app = express();
 app.use(express.json());
 
