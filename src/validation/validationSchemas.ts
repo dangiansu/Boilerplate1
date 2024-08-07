@@ -1,5 +1,3 @@
-// validationSchemas.ts
-
 import Joi from 'joi'
 import {
   RegisterRequest,
@@ -30,7 +28,6 @@ const updateUserSchema = Joi.object<UpdateUserRequest>({
 })
 
 const resetPasswordSchema = Joi.object<ResetPasswordRequest>({
-  resetPasswordToken: Joi.string().required(),
   newPassword: Joi.string().min(6).required(),
 })
 

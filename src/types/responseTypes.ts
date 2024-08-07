@@ -1,5 +1,3 @@
-// types.ts
-
 export interface RegisterRequest {
   firstname: string
   lastname: string

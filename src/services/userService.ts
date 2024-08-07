@@ -3,7 +3,7 @@ import { parse, isValid, startOfDay, endOfDay } from 'date-fns'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import jwt from 'jsonwebtoken'
-import { MESSAGES } from '../config/constants'
+import { HTTP_STATUS } from '../config/constants'
 import AppError from '../utils/AppError'
 import { sendResetPasswordEmail } from '../helper/email'
 import { UserQuery } from '../types/userTypes'
@@ -61,7 +61,7 @@ export const createUser = async (userData: IUser): Promise<IUser> => {
 export const login = async (email: string, password: string): Promise<string> => {
   const user = await User.findOne({ email }).select('+password')
   if (!user || !(await bcrypt.compare(password, user.password))) {
-    throw new AppError(MESSAGES.INVALID_CREDENTIALS, 401)
+    throw new AppError('INVALID_CREDENTIALS', HTTP_STATUS.UNAUTHORIZED)
   }
 
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET!, {
@@ -127,40 +127,25 @@ export const resetPassword = async (
   token: string,
   newPassword: string
 ): Promise<{ success: boolean; message: string }> => {
-  try {
-    // Decode the JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { email: string }
+  const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { email: string }
 
-    // Generate the hashed version of the token
-    const resetToken = crypto.createHash('sha256').update(token).digest('hex')
+  const resetToken = crypto.createHash('sha256').update(token).digest('hex')
 
-    // Find the user with the matching reset token and email
-    const user = await User.findOne({
-      email: decoded.email,
-      resetPasswordToken: resetToken,
-      resetPasswordExpires: { $gt: Date.now() },
-    })
+  const user = await User.findOne({
+    email: decoded.email,
+    resetPasswordToken: resetToken,
+    resetPasswordExpires: { $gt: Date.now() },
+  })
 
-    if (!user) {
-      return { success: false, message: 'Invalid or expired token' }
-    }
-
-    // Update the user's password
-    user.password = newPassword
-    user.resetPasswordToken = undefined
-    user.resetPasswordExpires = undefined
-
-    await user.save()
-
-    return { success: true, message: 'Password updated successfully' }
-  } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      return { success: false, message: 'Invalid token' }
-    }
-    if (error instanceof jwt.TokenExpiredError) {
-      return { success: false, message: 'Token has expired' }
-    }
-    console.error('Error resetting password:', error)
-    return { success: false, message: 'An error occurred while resetting the password' }
+  if (!user) {
+    throw new AppError('Invalid or expired token', HTTP_STATUS.BAD_REQUEST)
   }
+
+  user.password = newPassword
+  user.resetPasswordToken = undefined
+  user.resetPasswordExpires = undefined
+
+  await user.save()
+
+  return { success: true, message: 'Password updated successfully' }
 }

@@ -58,8 +58,6 @@ export const validate = (schemaName: string) => {
     next()
   }
 }
-
-// Export specific validators
 export const validateRegister = validate('register')
 export const validateLogin = validate('login')
 export const validateUpdateUser = validate('update')

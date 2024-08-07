@@ -1,16 +1,13 @@
 import { Request, Response, NextFunction } from 'express'
-import { HTTP_STATUS, MESSAGES } from '../config/constants'
+import { HTTP_STATUS } from '../config/constants'
 import AppError from '../utils/AppError'
 import User, { IUser } from '../models/userModel'
 import * as userService from '../services/userService'
 import { responseData, responseMessage } from '../helper/response'
+import asyncHandler from '../utils/asynhandler'
 
-export const getUsers = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<Response | void> => {
-  try {
+export const getUsers = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { search, startDate, endDate } = req.query
 
     const users = await userService.getAllUsers({
@@ -18,6 +15,7 @@ export const getUsers = async (
       startDate: startDate as string,
       endDate: endDate as string,
     })
+
     responseData({
       res,
       statusCode: HTTP_STATUS.OK,
@@ -25,27 +23,21 @@ export const getUsers = async (
       message: responseMessage('success', 'get', 'user'),
       data: users,
     })
-  } catch (error) {
-    return next(new AppError(MESSAGES.SERVER, HTTP_STATUS.INTERNAL_SERVER_ERROR))
   }
-}
+)
 
-export const getUserById = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<Response | void> => {
-  try {
+export const getUserById = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const userId = req.params.id
 
     // Check if the user ID is a valid MongoDB ObjectId
     if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-      return next(new AppError('This type of id is not valid', HTTP_STATUS.BAD_REQUEST))
+      throw new AppError('This type of id is not valid', HTTP_STATUS.BAD_REQUEST)
     }
 
     const user = await userService.getUserById(userId)
     if (!user) {
-      return next(new AppError('User not found', HTTP_STATUS.NOT_FOUND))
+      throw new AppError('User not found', HTTP_STATUS.NOT_FOUND)
     }
 
     responseData({
@@ -54,28 +46,16 @@ export const getUserById = async (
       success: true,
       data: user,
     })
-  } catch (error) {
-    return next(new AppError(MESSAGES.SERVER, HTTP_STATUS.INTERNAL_SERVER_ERROR))
   }
-}
+)
 
-export const createUser = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<Response | void> => {
-  try {
+export const createUser = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const userData: IUser = req.body
     const existingUser = await User.findOne({ email: userData.email })
 
     if (existingUser) {
-      return responseData({
-        res,
-        statusCode: HTTP_STATUS.BAD_REQUEST,
-        success: false,
-        message: responseMessage('success', 'created', 'user'),
-        data: null,
-      })
+      return next(new AppError('user already exist', HTTP_STATUS.BAD_REQUEST))
     }
 
     const newUser = await userService.createUser(userData)
@@ -84,20 +64,14 @@ export const createUser = async (
       res,
       statusCode: HTTP_STATUS.CREATED,
       success: true,
-      message: responseMessage('success', 'updated', 'users'),
+      message: responseMessage('success', 'created', 'user'),
       data: newUser,
     })
-  } catch (error) {
-    return next(new AppError(MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR))
   }
-}
+)
 
-export const login = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<Response | void> => {
-  try {
+export const login = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { email, password } = req.body
 
     const token = await userService.login(email, password)
@@ -109,37 +83,31 @@ export const login = async (
       message: responseMessage('user_logged', 'login', 'user'),
       data: { token },
     })
-  } catch (error) {
-    return next(new AppError(MESSAGES.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED))
   }
-}
+)
 
-export const updateUser = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<Response | void> => {
-  try {
+export const updateUser = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const userId = req.params.id
 
     if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-      return next(new AppError('This type of id is not valid', HTTP_STATUS.BAD_REQUEST))
+      throw new AppError('This type of id is not valid', HTTP_STATUS.BAD_REQUEST)
     }
 
     const userData: Partial<IUser> = req.body
 
     if (Object.keys(userData).length === 0) {
-      return next(new AppError(MESSAGES.EMPTY_BODY, HTTP_STATUS.BAD_REQUEST))
+      throw new AppError('Empty body is not required', HTTP_STATUS.BAD_REQUEST)
     }
 
     if (userData.email) {
-      return next(new AppError(MESSAGES.EMAIL_UPDATE_FORBIDDEN, HTTP_STATUS.FORBIDDEN))
+      throw new AppError('you cant update email', HTTP_STATUS.FORBIDDEN)
     }
 
     const updatedUser = await userService.updateUser(userId, userData)
 
     if (!updatedUser) {
-      return next(new AppError(MESSAGES.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND))
+      throw new AppError('user not found', HTTP_STATUS.NOT_FOUND)
     }
 
     responseData({
@@ -149,27 +117,21 @@ export const updateUser = async (
       message: responseMessage('updated', 'update', 'user'),
       data: updatedUser,
     })
-  } catch (error) {
-    return next(new AppError(MESSAGES.SERVER, HTTP_STATUS.INTERNAL_SERVER_ERROR))
   }
-}
+)
 
-export const deleteUser = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<Response | void> => {
-  try {
+export const deleteUser = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const userId = req.params.id
 
     if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-      return next(new AppError('This type of id is not valid', HTTP_STATUS.BAD_REQUEST))
+      throw new AppError('This type of id is not valid', HTTP_STATUS.BAD_REQUEST)
     }
 
     const deletedUser = await userService.deleteUser(userId)
 
     if (!deletedUser) {
-      return next(new AppError(MESSAGES.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND))
+      throw new AppError('user not found', HTTP_STATUS.NOT_FOUND)
     }
 
     responseData({
@@ -179,32 +141,26 @@ export const deleteUser = async (
       message: responseMessage('deleted', 'delete', 'user'),
       data: null,
     })
-  } catch (error) {
-    return next(new AppError(MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR))
   }
-}
+)
 
-export const changePassword = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<Response | void> => {
-  const { oldPassword, newPassword } = req.body
-  const userId = req.params.id
+export const changePassword = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
+    const { oldPassword, newPassword } = req.body
+    const userId = req.params.id
 
-  if (oldPassword === newPassword) {
-    return next(new AppError(MESSAGES.SAME_PASSWORD_ERROR, HTTP_STATUS.BAD_REQUEST))
-  }
+    if (oldPassword === newPassword) {
+      return next(new AppError('oldpassword and newpassword are same', HTTP_STATUS.BAD_REQUEST))
+    }
 
-  if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-    return next(new AppError('Invalid user ID format', HTTP_STATUS.BAD_REQUEST))
-  }
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return next(new AppError('Invalid user ID format', HTTP_STATUS.BAD_REQUEST))
+    }
 
-  try {
     const updatedUser = await userService.changePassword(userId, oldPassword, newPassword)
 
     if (!updatedUser) {
-      return next(new AppError(MESSAGES.WRONG_PASSWORD, HTTP_STATUS.NOT_FOUND))
+      return next(new AppError('Wrong password', HTTP_STATUS.NOT_FOUND))
     }
 
     responseData({
@@ -214,23 +170,17 @@ export const changePassword = async (
       message: 'Password changed successfully',
       data: null,
     })
-  } catch (error) {
-    return next(new AppError(MESSAGES.SERVER, HTTP_STATUS.INTERNAL_SERVER_ERROR))
   }
-}
+)
 
-export const requestPasswordReset = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<Response | void> => {
-  const { email } = req.body
+export const requestPasswordReset = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
+    const { email } = req.body
 
-  if (!email) {
-    return next(new AppError('Email is required', HTTP_STATUS.BAD_REQUEST))
-  }
+    if (!email) {
+      return next(new AppError('Email is required', HTTP_STATUS.BAD_REQUEST))
+    }
 
-  try {
     const token = await userService.requestPasswordReset(email)
 
     if (!token) {
@@ -241,31 +191,25 @@ export const requestPasswordReset = async (
       res,
       statusCode: HTTP_STATUS.OK,
       success: true,
-      message: MESSAGES.EMAIL_SEND,
+      message: 'email send succussesfully',
       data: { token },
     })
-  } catch (error) {
-    return next(new AppError(MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR))
   }
-}
+)
 
-export const resetPassword = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<Response | void> => {
-  const { newPassword } = req.body
-  const { token } = req.query
+export const resetPassword = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
+    const { newPassword } = req.body
+    const { token } = req.query
 
-  if (!newPassword) {
-    return next(new AppError('New password is required', HTTP_STATUS.BAD_REQUEST))
-  }
+    if (!newPassword) {
+      return next(new AppError('New password is required', HTTP_STATUS.BAD_REQUEST))
+    }
 
-  if (typeof token !== 'string') {
-    return next(new AppError('Valid token is required', HTTP_STATUS.BAD_REQUEST))
-  }
+    if (typeof token !== 'string') {
+      return next(new AppError('Valid token is required', HTTP_STATUS.BAD_REQUEST))
+    }
 
-  try {
     const result = await userService.resetPassword(token, newPassword)
 
     if (!result.success) {
@@ -279,7 +223,5 @@ export const resetPassword = async (
       message: result.message,
       data: null,
     })
-  } catch (error) {
-    return next(new AppError(MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR))
   }
-}
+)

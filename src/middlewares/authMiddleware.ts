@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import AppError from '../utils/AppError'
 import { IUser } from '../models/userModel'
-import { HTTP_STATUS, MESSAGES } from '../config/constants'
+import { HTTP_STATUS } from '../config/constants'
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -17,12 +17,14 @@ const protect = (req: Request, res: Response, next: NextFunction): void => {
   }
 
   if (!token) {
-    return next(new AppError(MESSAGES.TOKENNOT_PROVED, HTTP_STATUS.FORBIDDEN))
+    return next(
+      new AppError('You are not logged in! Please log in to get access.', HTTP_STATUS.FORBIDDEN)
+    )
   }
 
   jwt.verify(token, process.env.JWT_SECRET!, (err, decoded) => {
     if (err) {
-      return next(new AppError(MESSAGES.TOKEN_EXPIRED, HTTP_STATUS.UNAUTHORIZED))
+      return next(new AppError('Token expired', HTTP_STATUS.UNAUTHORIZED))
     }
     req.user = decoded as IUser
     next()
